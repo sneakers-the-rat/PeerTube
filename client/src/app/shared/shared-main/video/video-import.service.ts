@@ -31,12 +31,13 @@ export class VideoImportService {
                .pipe(catchError(res => this.restExtractor.handleError(res)))
   }
 
-  importVideoTorrent (target: string | Blob, video: VideoUpdate): Observable<VideoImport> {
+  importVideoTorrent (target: string | Blob, video: VideoUpdate, file?: string): Observable<VideoImport> {
     const url = VideoImportService.BASE_VIDEO_IMPORT_URL
     const body: VideoImportCreate = this.buildImportVideoObject(video)
 
     if (typeof target === 'string') body.magnetUri = target
     else body.torrentfile = target
+    body.file = file
 
     const data = objectToFormData(body)
     return this.authHttp.post<VideoImport>(url, data)

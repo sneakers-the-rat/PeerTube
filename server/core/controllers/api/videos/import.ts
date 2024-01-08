@@ -88,10 +88,10 @@ function handleVideoImport (req: express.Request, res: express.Response) {
   if (req.body.targetUrl) return handleYoutubeDlImport(req, res)
 
   const file = req.files?.['torrentfile']?.[0]
-  if (req.body.magnetUri || file) return handleTorrentImport(req, res, file)
+  if (req.body.magnetUri || file) return handleTorrentImport(req, res, file, req.body?.file)
 }
 
-async function handleTorrentImport (req: express.Request, res: express.Response, torrentfile: Express.Multer.File) {
+async function handleTorrentImport (req: express.Request, res: express.Response, torrentfile: Express.Multer.File, file?: string) {
   const body: VideoImportCreate = req.body
   const user = res.locals.oauth.token.User
 
@@ -100,7 +100,7 @@ async function handleTorrentImport (req: express.Request, res: express.Response,
   let magnetUri: string
 
   if (torrentfile) {
-    const result = await processTorrentOrAbortRequest(req, res, torrentfile)
+    const result = await processTorrentOrAbortRequest(req, res, torrentfile, file)
     if (!result) return
 
     videoName = result.name
@@ -228,7 +228,7 @@ async function processPreview (req: express.Request, video: MVideoThumbnail): Pr
   return undefined
 }
 
-async function processTorrentOrAbortRequest (req: express.Request, res: express.Response, torrentfile: Express.Multer.File) {
+async function processTorrentOrAbortRequest (req: express.Request, res: express.Response, torrentfile: Express.Multer.File, file?: string) {
   const torrentName = torrentfile.originalname
 
   // Rename the torrent to a secured name
@@ -241,13 +241,24 @@ async function processTorrentOrAbortRequest (req: express.Request, res: express.
   const parsedTorrent = await (parseTorrent(buf) as unknown as Promise<Instance>)
 
   if (parsedTorrent.files.length !== 1) {
-    cleanUpReqFiles(req)
+    if (!file) {
+      cleanUpReqFiles(req)
 
-    res.fail({
-      type: ServerErrorCode.INCORRECT_FILES_IN_TORRENT,
-      message: 'Torrents with only 1 file are supported.'
-    })
-    return undefined
+      res.fail({
+        type: ServerErrorCode.INCORRECT_FILES_IN_TORRENT,
+        message: JSON.stringify(parsedTorrent.files.map(v => v.name))
+      })
+      return undefined
+    } else {
+      for (const tfile of parsedTorrent.files) {
+        if (tfile.name === file){
+          return {
+            name: extractNameFromArray(tfile.name),
+            torrentName
+          }
+        }
+      }
+    }
   }
 
   return {

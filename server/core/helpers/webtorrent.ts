@@ -25,7 +25,7 @@ import type { Instance, TorrentFile } from 'webtorrent'
 
 const createTorrentPromise = promisify2<string, any, any>(createTorrent)
 
-async function downloadWebTorrentVideo (target: { uri: string, torrentName?: string }, timeout: number) {
+async function downloadWebTorrentVideo (target: { uri: string, torrentName?: string, file?: string }, timeout: number) {
   const id = target.uri || target.torrentName
   let timer
 
@@ -49,19 +49,34 @@ async function downloadWebTorrentVideo (target: { uri: string, torrentName?: str
     const options = { path: directoryPath }
     const torrent = webtorrent.add(torrentId, options, torrent => {
       if (torrent.files.length !== 1) {
-        if (timer) clearTimeout(timer)
 
-        for (const file of torrent.files) {
-          deleteDownloadedFile({ directoryPath, filepath: file.path })
+        // deselect all files
+        torrent.deselect(0, torrent.pieces.length - 1, 0)
+        // select only files matching given filename
+        for (const tfile of torrent.files) {
+          if (tfile.name === target.file) {
+            tfile.select()
+            file = tfile
+          }
         }
 
-        return safeWebtorrentDestroy(webtorrent, torrentId, undefined, target.torrentName)
-          .then(() => rej(new Error('Cannot import torrent ' + torrentId + ': there are multiple files in it')))
+        if (!file) {
+          if (timer) clearTimeout(timer)
+
+          for (const file of torrent.files) {
+            deleteDownloadedFile({ directoryPath, filepath: file.path })
+          }
+
+          return safeWebtorrentDestroy(webtorrent, torrentId, undefined, target.torrentName)
+            .then(() => rej(new Error('Cannot import torrent ' + torrentId + ': there are multiple files in it, and no file is selected')))
+        }
+
+      } else {
+
+        logger.debug('Got torrent from webtorrent %s.', id, {infoHash: torrent.infoHash})
+
+        file = torrent.files[0]
       }
-
-      logger.debug('Got torrent from webtorrent %s.', id, { infoHash: torrent.infoHash })
-
-      file = torrent.files[0]
 
       // FIXME: avoid creating another stream when https://github.com/webtorrent/webtorrent/issues/1517 is fixed
       const writeStream = createWriteStream(path)

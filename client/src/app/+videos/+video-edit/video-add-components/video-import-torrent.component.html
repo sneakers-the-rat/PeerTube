@@ -26,6 +26,13 @@
       <input type="text" id="magnetUri" [(ngModel)]="magnetUri" class="form-control" />
     </div>
 
+    <div *ngIf="needsSelectFile" class="form-group">
+      <label i18n for="file-in-torrent">Select file from torrent</label>
+      <my-select-options
+        labelForId="file-in-torrent" [items]="filesInTorrent" [(ngModel)]="firstStepFileInTorrent"
+      ></my-select-options>
+    </div>
+
     <div class="form-group">
       <label i18n for="first-step-channel">Channel</label>
       <my-select-channel
@@ -36,7 +43,7 @@
     <div class="form-group">
       <label i18n for="first-step-privacy">Privacy</label>
       <my-select-options
-        labelForId="first-step-privacy" [items]="videoPrivacies" [(ngModel)]="firstStepPrivacyId"
+        labelForId="first-step-privacy" [items]="videoPrivacies" [(ngModel)]="firstStepPrivacyId" (change)="fileInTorrentChange()"
       ></my-select-options>
     </div>
 

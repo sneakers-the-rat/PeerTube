@@ -105,6 +105,7 @@ export interface VideoImportYoutubeDLPayload {
 export interface VideoImportTorrentPayload {
   type: VideoImportTorrentPayloadType
   videoImportId: number
+  file?: string
 }
 
 export type VideoImportPayload = (VideoImportYoutubeDLPayload | VideoImportTorrentPayload) & {

@@ -10,6 +10,7 @@ import { logger } from '@root-helpers/logger'
 import { PeerTubeProblemDocument, ServerErrorCode, VideoUpdate } from '@peertube/peertube-models'
 import { hydrateFormFromVideo } from '../shared/video-edit-utils'
 import { VideoSend } from './video-send'
+import { SelectOptionsItem } from 'src/types/select-options-item.model'
 
 @Component({
   selector: 'my-video-import-torrent',
@@ -30,6 +31,9 @@ export class VideoImportTorrentComponent extends VideoSend implements OnInit, Af
   isImportingVideo = false
   hasImportedVideo = false
   isUpdatingVideo = false
+  needsSelectFile = false
+  firstStepFileInTorrent = ''
+  filesInTorrent: SelectOptionsItem[] = []
 
   video: VideoEdit
   error: string
@@ -73,6 +77,10 @@ export class VideoImportTorrentComponent extends VideoSend implements OnInit, Af
     this.importVideo(torrentfile)
   }
 
+  fileInTorrentChange () {
+    this.fileChange()
+  }
+
   setTorrentFile (files: FileList) {
     this.torrentfileInput.nativeElement.files = files
     this.fileChange()
@@ -89,7 +97,7 @@ export class VideoImportTorrentComponent extends VideoSend implements OnInit, Af
 
     this.loadingBar.useRef().start()
 
-    this.videoImportService.importVideoTorrent(torrentfile || this.magnetUri, videoUpdate)
+    this.videoImportService.importVideoTorrent(torrentfile || this.magnetUri, videoUpdate, this.firstStepFileInTorrent)
       .pipe(switchMap(({ video }) => this.videoService.getVideo({ videoId: video.uuid })))
       .subscribe({
         next: video => {
@@ -105,16 +113,19 @@ export class VideoImportTorrentComponent extends VideoSend implements OnInit, Af
         },
 
         error: err => {
+
           this.loadingBar.useRef().complete()
+          const error = err.body as PeerTubeProblemDocument
+          if (error?.code === ServerErrorCode.INCORRECT_FILES_IN_TORRENT) {
+            this.filesInTorrent = JSON.parse(err.message)
+            this.needsSelectFile = true
+            return
+            // message = $localize`Torrents with only 1 file are supported.`
+          }
           this.isImportingVideo = false
           this.firstStepError.emit()
 
           let message = err.message
-
-          const error = err.body as PeerTubeProblemDocument
-          if (error?.code === ServerErrorCode.INCORRECT_FILES_IN_TORRENT) {
-            message = $localize`Torrents with only 1 file are supported.`
-          }
 
           this.notifier.error(message)
         }
